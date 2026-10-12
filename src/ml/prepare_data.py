@@ -70,6 +70,18 @@ def prepare(path=config.CLEANED_FILE):
     return cohort, features, split, report
 
 
+def write_split_assignments(assignments, path):
+    """
+    Write the split assignments CSV and return its SHA-256 fingerprint.
+
+    Lines always end in "\n" so the file, and therefore the fingerprint,
+    is identical on Windows, Linux and macOS (pandas otherwise uses the
+    operating system's line ending).
+    """
+    assignments.to_csv(path, index=False, lineterminator="\n")
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def main():
     cohort, _, split, report = prepare()
 
@@ -79,12 +91,10 @@ def main():
         split=split.to_numpy()
     )
     assignments_file = config.DATA_PREP_DIR / "split_assignments.csv"
-    assignments.to_csv(assignments_file, index=False)
-
     # Fingerprint so a split made on another machine can be compared.
-    report["split_assignments_sha256"] = hashlib.sha256(
-        assignments_file.read_bytes()
-    ).hexdigest()
+    report["split_assignments_sha256"] = write_split_assignments(
+        assignments, assignments_file
+    )
 
     with open(config.DATA_PREP_DIR / "data_prep_report.json", "w",
               encoding="utf-8") as handle:

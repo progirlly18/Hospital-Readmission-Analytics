@@ -14,7 +14,7 @@ From the project root, with the Part 1 environment activated:
 ```bash
 pip install -r requirements-ml.txt
 python -m src.ml.prepare_data     # builds cohort, features, split, runs checks
-python -m pytest                  # 53 tests
+python -m pytest                  # 56 tests
 ```
 
 `prepare_data` writes (gitignored, regenerated each run):
@@ -136,7 +136,9 @@ pandas 3.0.6 / scikit-learn 1.9.1 on Python 3.13.
 Split fingerprint (SHA-256 of `split_assignments.csv`):
 `45788b051270260de0dc1bb3eefc80b81f94b76fccfa0d280449631f388aa941`.
 If you run `prepare_data` locally and get the same fingerprint, your split is
-identical to this one.
+identical to this one. The CSV is always written with `\n` line endings, so the
+fingerprint is the same on Windows, Linux and macOS. (Before this fix, Windows
+wrote `\r\n` and printed `b3cce116…7d177` for the identical split.)
 
 ### Class imbalance
 
@@ -187,13 +189,15 @@ unstable. Phase 3 will report confidence intervals or flag them.
 
 ## Tests
 
-`python -m pytest`: **53 passed** in all three environments above.
+`python -m pytest`: **56 passed** on Python 3.11 with the pinned versions
+(53 passed in the two other environments before the fingerprint fix below).
 
 | File | What it covers |
 |---|---|
 | `tests/test_target_and_cohort.py` | Target mapping, invalid labels, cohort exclusions and counts |
 | `tests/test_features.py` | ICD-9 grouping (incl. decimals), age, feature list, no forbidden columns, race/payer/target do not affect features, row-wise construction, train-only fitting, unseen categories, missing values |
 | `tests/test_split_and_checks.py` | Zero overlap, proportions, reproducibility, seed sensitivity, row-order independence, positive-rate balance, leak detection on a planted target copy |
+| `tests/test_fingerprint.py` | CSV always uses `\n` line endings; fingerprint identical when the OS line ending is `\n` or `\r\n` |
 | `tests/test_real_data.py` | On the real CSV: exact cohort counts, target equals Part 1 rule, all checks pass, split positive rates within 1 point (skipped if the CSV is missing) |
 
 ## Limitations
