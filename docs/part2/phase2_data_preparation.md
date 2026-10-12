@@ -117,8 +117,10 @@ forced.
 
 `sklearn.model_selection.StratifiedGroupKFold` was tried first and rejected:
 scikit-learn 1.5.2 and 1.9.1 produced **different** splits from the same seed.
-The hash-based method gave byte-identical output on both
-(pandas 2.2.3 / scikit-learn 1.5.2 and pandas 3.0.6 / scikit-learn 1.9.1).
+The hash-based method gave byte-identical output in all three environments
+tested: Python 3.11 with the pinned `requirements-ml.txt` versions (matching
+the local project environment), pandas 2.2.3 / scikit-learn 1.5.2, and
+pandas 3.0.6 / scikit-learn 1.9.1 on Python 3.13.
 
 ### Actual split (seed 42)
 
@@ -185,7 +187,7 @@ unstable. Phase 3 will report confidence intervals or flag them.
 
 ## Tests
 
-`python -m pytest`: **53 passed** on both environments above.
+`python -m pytest`: **53 passed** in all three environments above.
 
 | File | What it covers |
 |---|---|
