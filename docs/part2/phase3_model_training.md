@@ -95,7 +95,7 @@ ranking of patients do not change, but the probabilities become meaningful.
 | ECE | 0.351 | 0.010 | 0.319 | 0.007 | 0.346 | 0.005 |
 
 For reference, always predicting the training positive rate gives a Brier
-score of about 0.101 on validation.
+score of about 0.102 on validation.
 
 ECE (expected calibration error) is the size-weighted average gap between
 mean predicted probability and observed rate across 10 equal-frequency bins.
