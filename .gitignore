@@ -13,3 +13,13 @@ __pycache__/
 
 # Local logs
 logs/
+
+# ---------------------------------------------------------
+# Part 2 (ML / MLOps) generated files
+# ---------------------------------------------------------
+artifacts/
+mlruns/
+mlartifacts/
+mlflow.db
+models/
+.pytest_cache/

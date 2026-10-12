@@ -1,0 +1,7 @@
+# Part 2 (ML/MLOps) dependencies, installed on top of requirements.txt.
+# Versions are lower bounds for now; they will be pinned to the local
+# environment once its `pip freeze` output is available.
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.4
+pytest>=8.0
