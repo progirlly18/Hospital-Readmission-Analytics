@@ -1,0 +1,8 @@
+# Part 2 (ML/MLOps) dependencies, installed on top of requirements.txt.
+# Pinned to the project's local environment (Python 3.11.9, Windows).
+# pandas and numpy match the versions already installed for Part 1.
+pandas==3.0.5
+numpy==2.4.6
+scikit-learn==1.9.1
+scipy==1.17.1
+pytest==9.1.1
