@@ -44,16 +44,15 @@ def make_encounter(encounter_id, patient, readmitted="NO", **overrides):
     return row
 
 
-@pytest.fixture
-def synthetic_cohort():
+def build_synthetic_cohort(n_patients=600, seed=0):
     """
-    600 synthetic patients with 1-4 encounters each, ~12% positives.
-    Fully deterministic.
+    Synthetic patients with 1-4 encounters each, ~12% positives.
+    Fully deterministic for a given seed.
     """
-    rng = np.random.default_rng(0)
+    rng = np.random.default_rng(seed)
     rows = []
     encounter_id = 1
-    for patient in range(600):
+    for patient in range(n_patients):
         for _ in range(rng.integers(1, 5)):
             label = "<30" if rng.random() < 0.12 else rng.choice([">30", "NO"])
             rows.append(make_encounter(
@@ -70,3 +69,8 @@ def synthetic_cohort():
     df = pd.DataFrame(rows)
     df[config.TARGET_COLUMN] = (df["readmitted"] == "<30").astype(int)
     return df
+
+
+@pytest.fixture
+def synthetic_cohort():
+    return build_synthetic_cohort()
