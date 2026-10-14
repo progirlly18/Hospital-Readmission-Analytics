@@ -279,9 +279,61 @@ The project follows a patient-safe approach by using surrogate patient keys in t
 
 ## Project Scope
 
-This README documents Part 1 of the project, which focuses on data engineering, ETL, orchestration, analytical storage, validation, and visualization.
+The sections above document Part 1 of the project, which focuses on data engineering, ETL, orchestration, analytical storage, validation, and visualization.
 
-Machine-learning-based readmission prediction and subsequent MLOps components are outside the current Part 1 implementation scope.
+Part 2, below, adds machine-learning-based readmission prediction and the MLOps components around it. It reads Part 1's cleaned data and leaves the Part 1 pipeline, database and dashboard pages unchanged.
+
+---
+
+## Part 2 – Machine Learning and MLOps
+
+> Academic decision-support prototype. The model is not clinically validated and must not be used for real patient decisions.
+
+### What it does
+
+Part 2 predicts whether a diabetic inpatient encounter will be followed by a readmission within 30 days of discharge, and wraps the model in a reproducible workflow:
+
+| Phase | What was built | Documentation |
+|---|---|---|
+| 2 | Modelling cohort (99,340 encounters), 39 features known at discharge, patient-grouped train/validation/test split | `docs/part2/phase2_data_preparation.md` |
+| 3 | Logistic Regression, Random Forest and XGBoost compared; calibrated Random Forest selected (test ROC-AUC 0.6715) | `docs/part2/phase3_model_training.md` |
+| 4 | MLflow tracking and registry: `hospital-readmission-30d-classifier` version 1, alias `@candidate` | `docs/part2/phase4_mlflow_tracking.md` |
+| 5 | FastAPI service: `/health`, `/model-info`, `/predict` | `docs/part2/phase5_api.md` |
+| 6 | Docker image serving an exported model bundle | `docs/part2/phase6_docker.md` |
+| 7 | Monitoring: drift (PSI), performance, explainability, retraining criteria, `/metrics` | `docs/part2/phase7_monitoring.md` |
+| 8 | Readmission Risk Prediction page in the Streamlit dashboard, demo and submission evidence | `docs/part2/phase8_submission.md` |
+
+Overview documents: `docs/part2/architecture.md` (architecture diagram) and `docs/part2/model_card.md` (model card).
+
+### Quick start
+
+```bash
+pip install -r requirements.txt -r requirements-ml.txt
+python -m pytest -q                       # full test suite
+uvicorn src.api.main:app                  # prediction API on http://127.0.0.1:8000
+streamlit run dashboard/app.py            # dashboard; open "Readmission Risk Prediction"
+python -m src.monitoring.report           # monitoring report in artifacts/monitoring/
+```
+
+The API and the monitoring report need the local MLflow store from Phase 4 (`mlflow.db` and `mlartifacts/`, not committed) or an exported model bundle (`READMISSION_MODEL_BUNDLE`). The prediction page calls the API at `http://localhost:8000` (or `READMISSION_API_URL`) and shows a message instead of a result when the API is not running. The full demo steps are in `docs/part2/phase8_submission.md`.
+
+### Part 2 code layout
+
+```text
+src/ml/           cohort, features, split, training, selection, MLflow registration
+src/api/          FastAPI service, request validation, model loading, telemetry, dashboard client
+src/monitoring/   drift, retraining criteria, monitoring report
+dashboard/pages/  Readmission Risk Prediction page
+tests/            Part 2 tests
+docs/part2/       phase documentation, architecture, model card
+```
+
+### Responsible use
+
+- Inputs exclude identifiers, race and payer; race is used only to check performance across groups.
+- The API does not log request bodies, and `/metrics` keeps aggregate counts only.
+- The model does not apply to patients who died in hospital or were discharged to hospice; the API rejects those discharge codes.
+- Discrimination is modest (ROC-AUC about 0.67). See the model card for limitations.
 
 ```
 
