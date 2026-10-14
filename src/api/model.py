@@ -15,6 +15,10 @@ otherwise the API reports itself unavailable (HTTP 503):
 - the model file hash in the version tag, the MLmodel metadata and the source
   run tag equals TRUSTED_MODEL_SHA256 (the Phase 3 file verified in Phase 4),
   and the version is labelled as the unchanged Phase 3 model.
+
+Inside a container the registry is not reachable, so the model can instead be
+loaded from a bundle exported from it (src/api/bundle.py). The bundle goes
+through the same checks, plus a hash check of every exported file.
 """
 
 import os
@@ -31,6 +35,8 @@ from mlflow import MlflowClient  # noqa: E402
 
 EXPECTED_THRESHOLD = 0.1617830043681171
 TRUSTED_MODEL_SHA256 = "1d17bf4ac345891a58b4566ca5b3265798fea2cc73aa2dde860015dfc25062f9"
+# model.skops of registered version 1 (the same model, as stored by MLflow).
+TRUSTED_ARTIFACT_SHA256 = "13f79fe55a2112ad17fc77af4b8cda65784a090fb9890bb8b50688f1a704d1d5"
 DISCLAIMER = (
     "Academic decision-support prototype; not clinically validated and not "
     "for real patient decisions."
@@ -49,12 +55,15 @@ class Settings:
     alias: str = MODEL_ALIAS
     expected_threshold: float = EXPECTED_THRESHOLD
     trusted_sha256: str = TRUSTED_MODEL_SHA256
+    trusted_artifact_sha256: str = TRUSTED_ARTIFACT_SHA256
     feature_columns: tuple = field(default_factory=lambda: tuple(config.FEATURE_COLUMNS))
+    bundle_dir: str | None = None
 
     @classmethod
     def from_env(cls):
-        """Only the store location can be changed from the environment."""
-        return cls(tracking_uri=os.environ.get("READMISSION_TRACKING_URI", TRACKING_URI))
+        """Only the store or bundle location can be changed from the environment."""
+        return cls(tracking_uri=os.environ.get("READMISSION_TRACKING_URI", TRACKING_URI),
+                   bundle_dir=os.environ.get("READMISSION_MODEL_BUNDLE") or None)
 
 
 @dataclass(frozen=True)
@@ -109,8 +118,8 @@ def verify(settings, version, info, run_tags):
     return tag_threshold
 
 
-def load_model(settings):
-    """Resolve, verify and load the registered model; raise ModelNotReady."""
+def resolve(settings):
+    """Look up the alias in the registry: (version, model uri, model info, run tags)."""
     client = MlflowClient(tracking_uri=settings.tracking_uri)
     mlflow.set_tracking_uri(settings.tracking_uri)
     try:
@@ -123,9 +132,11 @@ def load_model(settings):
             f"registered model {settings.model_name}@{settings.alias} is unavailable "
             f"({type(error).__name__})"
         ) from None
+    return version, uri, info, run_tags
 
-    threshold = verify(settings, version, info, run_tags)
 
+def load_verified(settings, version, threshold, uri):
+    """Load a model that passed verify() and check it is a binary classifier."""
     try:
         model = mlflow.sklearn.load_model(uri)
     except Exception as error:
@@ -143,3 +154,14 @@ def load_model(settings):
         serialization_format="skops",
         feature_columns=settings.feature_columns,
     )
+
+
+def load_model(settings):
+    """Resolve, verify and load the model (registry or bundle); raise ModelNotReady."""
+    if settings.bundle_dir:
+        from src.api.bundle import load_bundle
+        return load_bundle(settings)
+
+    version, uri, info, run_tags = resolve(settings)
+    threshold = verify(settings, version, info, run_tags)
+    return load_verified(settings, version, threshold, uri)

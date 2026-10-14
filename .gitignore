@@ -22,4 +22,5 @@ mlruns/
 mlartifacts/
 mlflow.db
 models/
+model_bundle/
 .pytest_cache/
