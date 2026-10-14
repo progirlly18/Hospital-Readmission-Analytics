@@ -104,7 +104,35 @@ Results on the project machine for this phase are recorded below.
 
 ### Actual results
 
-_To be added from the run on the project machine._
+On the project machine, with the registered model (version 1, `@candidate`)
+served from the MLflow registry:
+
+- Full test suite: **229 passed** (219 before this phase plus 10 new).
+- Smoke test (`python -m src.api.smoke_test`): `/health` 200 (model version
+  1), `/model-info` 200 (threshold 0.1617830043681171, model sha256
+  `1d17bf4a…62f9`), `/predict` 200, a request with an extra `race` field 422.
+  Passed.
+- Demo scenarios through the dashboard's client:
+
+  | Scenario | Probability | Risk group |
+  |---|---:|---|
+  | A, form defaults | 0.0916 | Lower risk |
+  | B, 4 prior inpatient visits, discharged to a skilled nursing facility | 0.3159 | Higher risk |
+
+- The page, run with Streamlit's test runner against the live API: "Prediction
+  API connected (model version 1)", and on submit 9.2%, "Lower risk",
+  threshold 16.2%, with no error. With the API stopped: "The prediction API is
+  not reachable", no result and no error.
+- `/metrics` after these calls: 5 `/predict` requests, 4 succeeded, 1 rejected
+  as invalid, failure rate 0.2, latency p50 98 ms and p95 319 ms; no input
+  values.
+- Dashboard (`streamlit run dashboard/app.py`, PostgreSQL running): the Part 1
+  page loads with its live figures (101,766 encounters, 11.16% readmission
+  rate, 4.40 days average stay), and the sidebar lists **Readmission Risk
+  Prediction** next to it. Streamlit labels the Part 1 page "app", after its
+  file name; renaming it would mean changing a Part 1 file, so it is left.
+- Afterwards the registry was unchanged: version 1 only, `@candidate` on
+  version 1, same threshold.
 
 ## Limitations
 
