@@ -17,10 +17,14 @@ From the project root:
 
 ```bash
 pip install -r requirements-ml.txt
-python -m src.ml.train            # full run: about 8 minutes on 4 CPU cores
+python -m src.ml.train            # full run: see runtime note below
 python -m src.ml.train --quick    # smoke run: one setting per model
 python -m pytest                  # 78 tests, about 1 minute
 ```
+
+The most recent full run took 1,046 seconds (about 17 minutes 26 seconds).
+Runtime depends on the environment (CPU, core count, background load), so
+expect it to vary between machines and runs.
 
 The run rebuilds the Phase 2 data, stops if any pre-training check fails, and
 prints the split fingerprint (expected `45788b05…aa941`). Outputs go to
@@ -34,7 +38,7 @@ prints the split fingerprint (expected `45788b05…aa941`). Outputs go to
 | `subgroups_validation.csv`, `subgroups_test.csv` | Metrics by gender, age group and race (selected model) |
 | `permutation_importance.csv` | Feature importance (selected model) |
 | `plots/*.png` | Reliability, ROC/PR curves, confusion matrices, importance |
-| `models/random_forest.joblib` | Selected pipeline (26 MB, not committed) |
+| `artifacts/phase3/models/random_forest.joblib` | Selected pipeline (26 MB, not committed) |
 
 ## Approach
 
@@ -72,9 +76,18 @@ mean CV ROC-AUC; PR-AUC is also recorded.
 | Random Forest | 200 trees, `max_features="sqrt"` | `max_depth` ∈ {8, 16} × `min_samples_leaf` ∈ {10, 50} | depth 16, leaf 10 |
 | XGBoost | 300 trees, learning rate 0.05, subsample 0.8, colsample 0.8, `hist` | `max_depth` ∈ {3, 5} × `min_child_weight` ∈ {1, 10} | depth 3, child weight 10 |
 
-All seeds are 42. The same command gives the same results up to
-floating-point rounding (about 1e-9) caused by multi-threaded training; the
-tests allow a relative tolerance of 1e-6.
+All seeds are 42. Even so, repeated full runs have not given identical
+results. An earlier full run, whose figures were documented here first,
+matched the saved run for Logistic Regression, Random Forest and the test-set
+results at the four decimals reported. For XGBoost, it differed by about 1e-3:
+validation ROC-AUC 0.6695 vs 0.6682, PR-AUC 0.2288 vs 0.2271, and selected
+threshold 0.1403 vs 0.1532. The cause of this difference has not been
+investigated. The figures in this document are those of the saved run in
+`artifacts/phase3/metrics.json`.
+
+The automated reproducibility test runs a quick configuration on small
+synthetic data and allows a relative tolerance of 1e-6. It does not cover the
+full real-data run.
 
 ### Probability calibration (training data only)
 
@@ -91,8 +104,8 @@ ranking of patients do not change, but the probabilities become meaningful.
 | Validation | LR raw | LR calibrated | RF raw | RF calibrated | XGB raw | XGB calibrated |
 |---|---:|---:|---:|---:|---:|---:|
 | Mean predicted | 0.467 | 0.114 | 0.435 | 0.116 | 0.462 | 0.115 |
-| Brier | 0.2259 | 0.0984 | 0.2015 | 0.0979 | 0.2230 | 0.0975 |
-| ECE | 0.351 | 0.010 | 0.319 | 0.007 | 0.346 | 0.005 |
+| Brier | 0.2259 | 0.0984 | 0.2015 | 0.0979 | 0.2231 | 0.0976 |
+| ECE | 0.351 | 0.010 | 0.319 | 0.007 | 0.346 | 0.006 |
 
 For reference, always predicting the training positive rate gives a Brier
 score of about 0.102 on validation.
@@ -128,17 +141,17 @@ validation metrics are unchanged.
 
 | Metric | Logistic Regression | Random Forest | XGBoost |
 |---|---:|---:|---:|
-| CV ROC-AUC (train, mean ± sd) | 0.6635 ± 0.0060 | 0.6683 ± 0.0064 | 0.6709 ± 0.0054 |
-| **Validation ROC-AUC** | 0.6618 | 0.6673 | **0.6695** |
-| **Validation PR-AUC** | 0.2139 | 0.2192 | **0.2288** |
-| Brier score | 0.0984 | 0.0979 | **0.0975** |
-| ECE | 0.0099 | 0.0070 | **0.0047** |
+| CV ROC-AUC (train, mean ± sd) | 0.6635 ± 0.0060 | 0.6683 ± 0.0064 | 0.6709 ± 0.0051 |
+| **Validation ROC-AUC** | 0.6618 | 0.6673 | **0.6682** |
+| **Validation PR-AUC** | 0.2139 | 0.2192 | **0.2271** |
+| Brier score | 0.0984 | 0.0979 | **0.0976** |
+| ECE | 0.0099 | 0.0070 | **0.0056** |
 | Precision / recall / F1 @ 0.5 | 0.535 / 0.022 / 0.042 | 0.000 / 0.000 / 0.000 | 0.000 / 0.000 / 0.000 |
-| Selected threshold | 0.1349 | 0.1618 | 0.1403 |
-| Precision @ selected | 0.2108 | **0.2227** | 0.2108 |
-| Recall @ selected | 0.4123 | 0.3984 | **0.4686** |
-| F1 @ selected | 0.2790 | 0.2857 | **0.2908** |
-| Confusion @ selected (TN / FP / FN / TP) | 10,521 / 2,658 / 1,012 / 710 | 10,784 / 2,395 / 1,036 / 686 | 10,157 / 3,022 / 915 / 807 |
+| Selected threshold | 0.1349 | 0.1618 | 0.1532 |
+| Precision @ selected | 0.2108 | **0.2227** | **0.2227** |
+| Recall @ selected | 0.4123 | 0.3984 | **0.4106** |
+| F1 @ selected | 0.2790 | 0.2857 | **0.2887** |
+| Confusion @ selected (TN / FP / FN / TP) | 10,521 / 2,658 / 1,012 / 710 | 10,784 / 2,395 / 1,036 / 686 | 10,711 / 2,468 / 1,015 / 707 |
 
 PR-AUC should be compared with the base rate of 0.116, which is what a random
 model would score.
@@ -148,17 +161,18 @@ model would score.
 The rule's output:
 
 ```text
-Best validation ROC-AUC 0.6695, best PR-AUC 0.2288.
+Best validation ROC-AUC 0.6682, best PR-AUC 0.2271.
 Eligible (within 0.01 ROC-AUC and 0.01 PR-AUC of the best): random_forest, xgboost.
-Lowest Brier among eligible 0.0975; within 0.002: random_forest, xgboost.
+Lowest Brier among eligible 0.0976; within 0.002: random_forest, xgboost.
 Selected the simplest of these: random_forest.
 ```
 
-**Note for review:** Random Forest passed the PR-AUC rule by a narrow margin
-(0.0096 behind XGBoost, against a tolerance of 0.01). XGBoost is slightly
-better on every validation metric except precision. A slightly tighter
-tolerance would have selected XGBoost. The rule was fixed before the results
-were seen, and it was applied as written.
+**Note for review:** Random Forest is 0.0079 behind XGBoost on validation
+PR-AUC, inside the tolerance of 0.01, and 0.0009 behind on ROC-AUC. XGBoost is
+slightly better on every validation metric except precision at the selected
+threshold, where the two are equal at four decimals (0.2227). A PR-AUC
+tolerance below 0.0079 would have selected XGBoost. The rule was fixed before
+the results were seen, and it was applied as written.
 
 ### Test set (selected model only, evaluated once)
 
