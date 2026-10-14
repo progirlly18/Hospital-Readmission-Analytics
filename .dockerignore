@@ -1,0 +1,11 @@
+# Allow-list: the image needs only the API code and its requirements.
+# Data, the MLflow store, model files, .env and Part 1 code stay out.
+*
+!requirements-api.txt
+!src/ml/__init__.py
+!src/ml/config.py
+!src/ml/tracking.py
+!src/ml/log_phase3_to_mlflow.py
+!src/ml/register_model.py
+!src/api/
+**/__pycache__
