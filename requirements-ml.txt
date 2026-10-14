@@ -10,3 +10,5 @@ pytest==9.1.1
 xgboost==3.2.0
 matplotlib==3.11.2
 joblib==1.6.0
+# Phase 4: experiment tracking and model registry
+mlflow==3.17.1
