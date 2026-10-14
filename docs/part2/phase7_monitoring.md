@@ -142,28 +142,45 @@ individual prediction is stored or returned. Counters reset on restart.
 
 ## Actual results
 
-Development run in the cloud workspace with that workspace's own Phase 3
-random forest, which is **not** the registered model (different hash). It
-shows the report works end to end; the registered model's numbers are below.
+Registered model, on the project machine: `hospital-readmission-30d-classifier`
+version 1 (`@candidate`), loaded from the MLflow registry, threshold
+0.1617830043681171, model sha256 `1d17bf4a…62f9`. Runtime 59 seconds.
 
-| Batch | ROC-AUC | ECE | Flagged | Prediction PSI | Inputs with PSI > 0.25 |
-|---|---:|---:|---:|---:|---|
-| validation (reference) | 0.6673 | 0.0070 | 0.2068 | – | – |
-| test (real) | 0.6715 | 0.0046 | 0.2049 | 0.0021 | none |
-| simulated_shift_a | 0.6457 | 0.0566 | 0.5842 | 2.0086 | number_inpatient, time_in_hospital, age_years |
-| simulated_shift_b | 0.6486 | 0.0794 | 0.6681 | 2.3647 | number_inpatient, time_in_hospital, age_years |
+| Batch | Rows | ROC-AUC | ECE | Flagged | Prediction PSI | Inputs with PSI > 0.25 |
+|---|---:|---:|---:|---:|---:|---|
+| validation (reference) | 14,901 | 0.6673 | 0.0070 | 0.2068 | – | – |
+| test (real) | 14,901 | 0.6715 | 0.0046 | 0.2049 | 0.0021 | none |
+| simulated_shift_a | 7,451 | 0.6457 | 0.0566 | 0.5842 | 2.0086 | number_inpatient, time_in_hospital, age_years |
+| simulated_shift_b | 7,450 | 0.6486 | 0.0794 | 0.6681 | 2.3647 | number_inpatient, time_in_hospital, age_years |
 
-Real data: no retraining recommended. Simulated shift: retraining recommended
-(prediction drift, calibration and flagged rate in both halves; the three
-shifted inputs drifted in two consecutive batches).
+The validation and test ROC-AUC match the Phase 3 results, as expected for the
+unchanged model and split.
 
-Registered model on the project machine: _to be added from the run of
-`python -m src.monitoring.report`._
+- Real data (test split): **no retraining recommended**; no criterion met.
+- Simulated shift: retraining recommended, as intended for the demonstration:
+  prediction drift, calibration and flagged rate in both halves; the three
+  shifted inputs drifted in the first half (warning) and again in the second
+  (persistent, so retraining).
+
+Most important inputs (ROC-AUC drop when shuffled): number_inpatient 0.0582,
+discharge_disposition_id 0.0371, number_diagnoses 0.0064, medical_specialty
+0.0039, diag_1_group 0.0039, time_in_hospital 0.0038, age_years 0.0035,
+number_emergency 0.0035, num_medications 0.0031, A1Cresult 0.0024.
+
+Tests on the project machine: full suite 219 passed (191 before Phase 7 plus
+28 new). In the cloud workspace, which has the data but not the registered
+model, the new tests also pass.
+
+The registry was unchanged afterwards: version 1 only, `@candidate` on
+version 1, same threshold and source run.
 
 ## Limitations
 
 - The "real" batch is the held-out test split, not production traffic; the
   report shows how monitoring would run, not how the model behaves later.
+  Each run re-reads the test labels, which Phase 3 used only once for the
+  final evaluation; the report only measures and never tunes anything on
+  them, but new labelled data should replace the test split once it exists.
 - The simulated shift is invented and its performance figures are only
   illustrative.
 - PSI limits (0.10, 0.25) are common conventions, not values tuned for this
