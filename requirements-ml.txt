@@ -12,3 +12,7 @@ matplotlib==3.11.2
 joblib==1.6.0
 # Phase 4: experiment tracking and model registry
 mlflow==3.17.1
+# Phase 5: FastAPI inference (fastapi/uvicorn: versions already installed with mlflow)
+fastapi==0.143.0
+uvicorn==0.52.3
+httpx==0.28.1
