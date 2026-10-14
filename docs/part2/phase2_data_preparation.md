@@ -164,10 +164,12 @@ consistent with no feature directly revealing the outcome.
 
 ## Subgroups (for fairness analysis; race is not a model feature)
 
-Race and gender are kept beside the features, never inside them. Privacy
-precautions: they are used only in aggregate, groups with fewer than 30
-encounters are suppressed in reports, and they will never be accepted or
-logged by the API.
+Race is kept beside the features, never inside them. Gender is one of the
+model features and is also used for subgroup analysis. Privacy precautions:
+subgroups are used only in aggregate, groups with fewer than 30 encounters
+are suppressed in reports, race is never accepted by the API, and gender is
+accepted only as a required model input; neither is logged or returned by
+the API.
 
 | Race | Train enc. (pos.) | Validation enc. (pos.) | Test enc. (pos.) |
 |---|---|---|---|
