@@ -9,11 +9,13 @@ Endpoints:
     GET  /health      200 when the verified model is loaded, else 503
     GET  /model-info  model name, version, threshold, provenance, feature names
     POST /predict     one encounter's 39 features -> probability and flag
+    GET  /metrics     aggregate request counts, failures, latency (Phase 7)
 
 Request bodies and feature values are never logged or returned; validation
 errors give the field and the problem, not the submitted value.
 """
 
+import time
 from contextlib import asynccontextmanager
 
 import pandas as pd
@@ -29,6 +31,7 @@ from src.api.model import (
     Settings,
     load_model,
 )
+from src.api.telemetry import Telemetry
 from src.api.schemas import (
     HealthResponse,
     ModelInfoResponse,
@@ -73,6 +76,19 @@ def create_app(settings=None, loader=load_model):
         description=DISCLAIMER,
         lifespan=lifespan,
     )
+    app.state.telemetry = Telemetry()
+
+    @app.middleware("http")
+    async def record_request(request: Request, call_next):
+        started = time.perf_counter()
+        status_code = 500  # kept if the endpoint raises
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            return response
+        finally:
+            app.state.telemetry.record_request(
+                request.url.path, status_code, (time.perf_counter() - started) * 1000)
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError):
@@ -118,13 +134,22 @@ def create_app(settings=None, loader=load_model):
         if loaded is None:
             return _unavailable(app)
         probability = float(loaded.model.predict_proba(feature_frame(request))[0, 1])
+        high_risk = probability >= loaded.threshold
+        app.state.telemetry.record_prediction(probability, high_risk)
         return PredictionResponse(
             readmission_probability=probability,
-            high_risk=probability >= loaded.threshold,
+            high_risk=high_risk,
             threshold=loaded.threshold,
             model_name=loaded.name,
             model_version=loaded.version,
             disclaimer=DISCLAIMER,
+        )
+
+    @app.get("/metrics")
+    def metrics():
+        return app.state.telemetry.snapshot(
+            model_loaded=app.state.model is not None,
+            model_error=app.state.model_error,
         )
 
     return app
