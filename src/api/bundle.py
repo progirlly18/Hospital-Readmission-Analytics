@@ -13,6 +13,16 @@ machine that has the store, into a plain folder:
 Run from the project root:
 
     python -m src.api.bundle            # writes model_bundle/ (gitignored)
+    python -m src.api.bundle --verify model_bundle
+                                        # checks a bundle exactly as the API does
+    python -m src.api.bundle --archive dist/model_bundle_v1.zip
+                                        # verified, reproducible zip + .sha256
+
+The archive is how the bundle reaches a machine without the MLflow store (for
+example a marker's fresh clone): it is verified before it is written, its
+entries have fixed timestamps so the same bundle always gives the same zip
+hash, and a .sha256 file is written next to it. After unzipping, --verify
+repeats every check. See docs/part2/model_bundle.md.
 
 The export runs the same checks as the API before writing anything, and
 refuses a model.skops that differs from the trusted registered artifact. The
@@ -28,6 +38,7 @@ import hashlib
 import json
 import shutil
 import tempfile
+import zipfile
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -161,13 +172,67 @@ def load_bundle(settings):
     return load_verified(settings, version, threshold, str(model_dir))
 
 
+# ---------------------------------------------------------
+# Archive and verify (moving a bundle to another machine)
+# ---------------------------------------------------------
+
+ZIP_DATE = (2026, 1, 1, 0, 0, 0)  # fixed, so the zip hash depends on content only
+
+
+def verify_bundle(settings, bundle_dir):
+    """Run every API check on a bundle folder; return the loaded model."""
+    return load_bundle(replace(settings, bundle_dir=str(bundle_dir)))
+
+
+def archive_bundle(settings, bundle_dir, zip_path):
+    """Verify a bundle, then write it as a reproducible zip; return its SHA-256."""
+    bundle_dir, zip_path = Path(bundle_dir), Path(zip_path)
+    verify_bundle(settings, bundle_dir)
+    if zip_path.exists():
+        raise FileExistsError(f"{zip_path} already exists; remove it or choose another name")
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    files = [MANIFEST] + [f"{MODEL_DIR}/{name}" for name in
+                          sorted(file_hashes(bundle_dir / MODEL_DIR))]
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        for name in files:
+            entry = zipfile.ZipInfo(f"model_bundle/{name}", date_time=ZIP_DATE)
+            entry.compress_type = zipfile.ZIP_DEFLATED
+            entry.external_attr = 0o644 << 16
+            archive.writestr(entry, (bundle_dir / name).read_bytes())
+    digest = sha256_file(zip_path)
+    Path(f"{zip_path}.sha256").write_text(f"{digest}  {zip_path.name}\n", encoding="utf-8")
+    return digest
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--out", type=Path, default=DEFAULT_BUNDLE_DIR)
+    parser.add_argument("--out", type=Path, default=DEFAULT_BUNDLE_DIR,
+                        help="export: folder to write the bundle to")
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument("--verify", type=Path, metavar="BUNDLE_DIR",
+                        help="check an existing bundle folder and exit")
+    action.add_argument("--archive", type=Path, metavar="ZIP",
+                        help="verify --bundle and write it as a zip with a .sha256 file")
+    parser.add_argument("--bundle", type=Path, default=DEFAULT_BUNDLE_DIR,
+                        help="archive: the bundle folder to pack (default model_bundle)")
     args = parser.parse_args()
 
     settings = Settings.from_env()
+    if args.verify or args.archive:
+        try:
+            if args.verify:
+                loaded = verify_bundle(settings, args.verify)
+                print(f"OK: {args.verify} holds {loaded.name} version {loaded.version} "
+                      f"(@{loaded.alias}), threshold {loaded.threshold!r}, "
+                      f"model sha256 {loaded.model_sha256}")
+            else:
+                digest = archive_bundle(settings, args.bundle, args.archive)
+                print(f"Wrote {args.archive} (sha256 {digest}) and {args.archive}.sha256")
+        except ModelNotReady as error:
+            raise SystemExit(f"Bundle check failed: {error}") from None
+        return
+
     if settings.bundle_dir:
         parser.error("unset READMISSION_MODEL_BUNDLE; the export reads the registry")
     manifest = export_bundle(settings, args.out)
