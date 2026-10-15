@@ -104,8 +104,7 @@ zip hash, plus `dist/model_bundle_v1.zip.sha256`. `dist/` is gitignored.
 - `tests/test_bundle.py`: 22 passed (4 new archive tests: reproducible zip
   with only the bundle files, unzipped archive passes every check, tampered
   bundle refused, existing file not overwritten).
-- **Not done:** the Docker step (4, second option) with the real bundle.
-  Docker is not installed on the project machine or its WSL Ubuntu, so the
-  real model has not run inside a container. The image itself was built and
-  tested with a synthetic bundle in Phase 6 (`phase6_docker.md`). Running
-  steps 1–5 with Docker on any machine that has it completes this test.
+- The Docker step (4, second option) with the real bundle was completed on
+  15 October 2026 with Docker Desktop: the container served version 1 from
+  the read-only bundle and the smoke test passed (`phase6_docker.md`,
+  "Real-model container test").

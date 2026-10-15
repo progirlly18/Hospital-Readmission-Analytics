@@ -139,5 +139,5 @@ served from the MLflow registry:
 - The page is for demonstration with made-up inputs; it has no login and no
   link to real records.
 - The API must be started separately; the page does not start it.
-- The real model has not been run inside a Docker container (no Docker on the
-  project machine; see Phase 6).
+- The real model was run inside the Docker container on 15 October 2026 and
+  passed the smoke test (see Phase 6, "Real-model container test").

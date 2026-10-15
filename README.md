@@ -360,7 +360,7 @@ Part 2 predicts whether a diabetic inpatient encounter will be followed by a rea
 | 3 | Logistic Regression, Random Forest and XGBoost compared; calibrated Random Forest selected (test ROC-AUC 0.6715) | `docs/part2/phase3_model_training.md` |
 | 4 | MLflow tracking (logged retrospectively from saved Phase 3 results) and registry: `hospital-readmission-30d-classifier` version 1, alias `@candidate` | `docs/part2/phase4_mlflow_tracking.md` |
 | 5 | FastAPI service: `/health`, `/model-info`, `/predict` | `docs/part2/phase5_api.md` |
-| 6 | Docker image serving an exported model bundle (container tested with a synthetic bundle only) | `docs/part2/phase6_docker.md` |
+| 6 | Docker image serving an exported model bundle (real model v1 tested in the container on 15 Oct 2026) | `docs/part2/phase6_docker.md` |
 | 7 | Monitoring: drift (PSI), performance, explainability, retraining criteria, `/metrics` | `docs/part2/phase7_monitoring.md` |
 | 8 | Readmission Risk Prediction page in the Streamlit dashboard, demo and submission evidence | `docs/part2/phase8_submission.md` |
 
@@ -375,9 +375,11 @@ Overview documents:
 
 ### Known limitations
 
-- The real registered model has not been run inside a Docker container
-  (Docker is not installed on the project machine). The image was built and
-  tested with a synthetic bundle; the real bundle was served with Uvicorn.
+- Docker was verified on one machine (Docker Desktop 29.8.2, 15 Oct 2026):
+  the container served the real registered model from the read-only bundle
+  and passed the smoke test and input-rejection checks
+  (`docs/part2/phase6_docker.md`). It has no authentication, HTTPS or rate
+  limiting, so it is a local prototype only.
 - MLflow runs were logged after training from the saved Phase 3 results, not
   during training. `@candidate` means registered, not approved.
 - Discrimination is modest (test ROC-AUC 0.6715), and there is no
