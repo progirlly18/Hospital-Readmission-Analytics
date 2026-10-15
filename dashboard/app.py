@@ -194,7 +194,6 @@ def style_fig(fig, show_legend=False):
         margin=dict(l=10, r=10, t=45, b=10),
         height=380,
         font=dict(family="Segoe UI, Helvetica, Arial, sans-serif", size=13, color="#26364b"),
-        title_font=dict(size=15, color="#10233f"),
         hoverlabel=dict(bgcolor="white", font_size=12),
     )
     fig.update_xaxes(showgrid=False)
