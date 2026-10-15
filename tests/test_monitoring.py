@@ -217,6 +217,14 @@ def test_markdown_separates_real_and_simulated_verdicts(report):
     assert "Simulated shift (demonstration only)" in text
 
 
+def test_every_batch_reports_input_quality(report):
+    for batch in report["batches"]:
+        quality = batch["input_quality"]
+        assert quality["rows"] == batch["rows"] and quality["passed"]
+        assert len(quality["columns"]) == len(config.FEATURE_COLUMNS)
+    assert "## Input-data quality" in markdown(report)
+
+
 def test_load_splits_refuses_a_different_split(tmp_path):
     cohort = build_synthetic_cohort(n_patients=50, seed=1).drop(
         columns=[config.TARGET_COLUMN])

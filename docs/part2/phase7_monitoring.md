@@ -58,6 +58,27 @@ unchanged) exist only to show that the checks react. They are labelled
 `SIMULATED` in the report and judged separately from the real batch, so they
 can never produce a recommendation about the real model.
 
+## Input-data quality
+
+Added after Phase 7 (`src/monitoring/data_quality.py`). The API already
+rejects a bad request on its own (HTTP 422); the report now applies the same
+rules to each whole batch and counts, per input, the values that are:
+
+- **missing** (empty), or
+- **invalid**: a numeric value outside the API's bounds (age must be a
+  10-year band midpoint, stay 1–14 days), a category the API does not accept,
+  or an expired or hospice discharge code (outside the cohort).
+
+A batch fails when any input has more than 1% of its rows missing or
+invalid. A failure means the data pipeline should be checked before the
+drift and performance figures for that batch are trusted; it is not a
+retraining trigger on its own. Only counts are written, never values.
+
+Result on the registered model (project machine, 2026-10-15): test,
+simulated_shift_a and simulated_shift_b all passed, with 0 missing and 0
+invalid values. All other figures in the report were unchanged by this
+addition.
+
 ## Drift (PSI)
 
 PSI = Σ (current share − baseline share) × ln(current share / baseline share).
@@ -137,7 +158,8 @@ individual prediction is stored or returned. Counters reset on restart.
 
 | File | Tests | What they cover |
 |---|---:|---|
-| `tests/test_monitoring.py` | 22 | PSI is zero when unchanged and grows with shift, stays finite with empty bins, status bands, tied edges; only shifted inputs flagged; unseen categories counted. Retraining: stable batches, drift must persist two batches, unimportant inputs ignored, each performance criterion, no trigger at the limits, subgroup gap asks for review only. Report on a synthetic cohort and model: real and simulated batches labelled and judged separately, aggregates only (no identifiers, subgroups under 30 suppressed), importance for all 39 inputs, Markdown verdicts, refuses a different split; the real split matches the training fingerprint (when the cleaned data is present) |
+| `tests/test_monitoring.py` | 23 | PSI is zero when unchanged and grows with shift, stays finite with empty bins, status bands, tied edges; only shifted inputs flagged; unseen categories counted. Retraining: stable batches, drift must persist two batches, unimportant inputs ignored, each performance criterion, no trigger at the limits, subgroup gap asks for review only. Report on a synthetic cohort and model: real and simulated batches labelled and judged separately, aggregates only (no identifiers, subgroups under 30 suppressed), importance for all 39 inputs, Markdown verdicts, refuses a different split, every batch has an input-quality section; the real split matches the training fingerprint (when the cleaned data is present) |
+| `tests/test_data_quality.py` | 6 | Clean batch passes with all 39 inputs checked; missing, out-of-range, non-midpoint age, unknown category and expired discharge values counted per column; fails only above the 1% limit; a missing column fails; counts only, no values |
 | `tests/test_telemetry.py` | 6 | Counts, failure rate, latency and probability bins; 503 recorded with the model error; no request values in `/metrics`; unknown paths share one counter; server errors counted; bins cover 0 to 1 |
 
 ## Actual results

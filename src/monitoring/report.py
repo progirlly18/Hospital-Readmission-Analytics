@@ -19,8 +19,10 @@ What it does, without retraining anything:
      split with an ARTIFICIAL, clearly labelled shift (older patients, more
      prior inpatient visits, longer stays). They exist only to show that
      drift detection and the retraining rules react; they are not real data.
-4. Per batch: PSI per feature and for the predictions, labelled performance
-   and calibration, and subgroup metrics (real batch only).
+4. Per batch: input-data quality (missing and invalid values per input,
+   src/monitoring/data_quality.py), PSI per feature and for the predictions,
+   labelled performance and calibration, and subgroup metrics (real batch
+   only).
 5. Explainability: permutation importance of the 39 inputs on validation.
 6. Retraining criteria (src/monitoring/retraining.py), applied to the real
    batch and to the simulated batches separately.
@@ -45,6 +47,7 @@ from src.ml.metrics import probability_metrics, threshold_metrics
 from src.ml.prepare_data import write_split_assignments
 from src.ml.split import assign_splits
 from src.ml.train import feature_importance, split_frames, subgroup_metrics
+from src.monitoring.data_quality import input_quality
 from src.monitoring.drift import DriftBaseline, prediction_psi
 from src.monitoring.retraining import KEY_FEATURES, recommendation
 
@@ -113,6 +116,7 @@ def measure_batch(name, features, labels, model, threshold, baseline,
         "name": name,
         "note": note,
         "rows": int(len(features)),
+        "input_quality": input_quality(features),
         "feature_drift": records(baseline.feature_psi(features)),
         "prediction_psi": prediction_psi(reference_probabilities, probabilities),
         "performance": performance(labels, probabilities, threshold),
@@ -198,6 +202,21 @@ def markdown(report):
                      f"{perf['ece']:.4f} | {perf['flagged_rate']:.4f} | "
                      f"{batch['prediction_psi']:.4f} | {drifted} |")
     lines += ["", f"Simulated batches: {SIMULATION_NOTE}", "",
+              "## Input-data quality", "",
+              "Values the API would reject (missing, out of range or unknown "
+              "category), per batch. A batch fails when any input has more than "
+              f"{report['batches'][0]['input_quality']['limit']:.0%} of its rows "
+              "affected.", "",
+              "| Batch | Rows | Missing values | Invalid values | Result |",
+              "|---|---:|---:|---:|---|"]
+    for batch in report["batches"]:
+        quality = batch["input_quality"]
+        result = "passed" if quality["passed"] else (
+            "failed: " + ", ".join(quality["failing_features"]))
+        lines.append(f"| {batch['name']} | {quality['rows']} | "
+                     f"{quality['missing_values']} | {quality['invalid_values']} | "
+                     f"{result} |")
+    lines += ["",
               "## Most important inputs (permutation importance)", "",
               "| Feature | ROC-AUC drop |", "|---|---:|"]
     for row in report["explainability"]["importance"][:KEY_FEATURES]:
