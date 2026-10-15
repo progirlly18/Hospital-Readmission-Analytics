@@ -52,11 +52,9 @@ Student: <b>Yashica G</b> (USN 1CR23AI143) &nbsp;|&nbsp; Repository: github.com/
 </table>
 
 <h2>3. Architecture</h2>
-<p>The architecture follows the layers suggested in the brief: source, ingestion, raw/staging, transformation, storage, analytics and an MLOps layer. Part 1's diagram is <code>docs/architecture.png</code> (Figure 1) and the mart schema is Figure 2. Figure 3 shows how Part 2 attaches to Part 1 without changing it.</p>
-<div class="two">
-<figure><img src="../architecture.png" style="max-height:62mm"><figcaption>Figure 1. Part 1 data architecture (<code>docs/architecture.png</code>).</figcaption></figure>
-<figure><img src="../Schema_Diagram.png" style="max-height:62mm"><figcaption>Figure 2. PostgreSQL schema of the analytical mart (<code>docs/Schema_Diagram.png</code>).</figcaption></figure>
-</div>
+<p>The architecture follows the layers suggested in the brief: source, ingestion, raw/staging, transformation, storage, analytics and an MLOps layer. The architecture diagram is <code>docs/architecture.png</code> (Figure 1) and the mart schema is Figure 2. Figure 3 shows how Part 2 attaches to Part 1 without changing it.</p>
+<figure><img src="../architecture.png" style="max-height:118mm"><figcaption>Figure 1. Implemented architecture: Airflow tasks and their outputs, PostgreSQL, Part 2 MLOps and the dashboard (<code>docs/architecture.png</code>).</figcaption></figure>
+<figure><img src="../Schema_Diagram.png" style="max-height:95mm"><figcaption>Figure 2. PostgreSQL schema of the analytical mart, drawn from <code>sql/schema.sql</code> (<code>docs/Schema_Diagram.png</code>).</figcaption></figure>
 <figure>
 <svg viewBox="0 0 900 252" width="100%" xmlns="http://www.w3.org/2000/svg">
   <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#456"/></marker></defs>
@@ -65,9 +63,9 @@ Student: <b>Yashica G</b> (USN 1CR23AI143) &nbsp;|&nbsp; Repository: github.com/
   <text x="15" y="38" font-weight="bold" fill="#1b3a5c">Part 1: data engineering</text>
   <rect x="20" y="50" width="100" height="34" rx="4" fill="#fff" stroke="#678"/><text x="70" y="71" text-anchor="middle">Raw CSV (UCI)</text>
   <rect x="140" y="50" width="105" height="34" rx="4" fill="#fff" stroke="#678"/><text x="192" y="65" text-anchor="middle">Airflow DAG</text><text x="192" y="78" text-anchor="middle" font-size="9">ingest→clean→features</text>
-  <rect x="20" y="110" width="100" height="34" rx="4" fill="#fff" stroke="#678"/><text x="70" y="126" text-anchor="middle">Validation +</text><text x="70" y="139" text-anchor="middle">rejected log</text>
+  <rect x="20" y="110" width="100" height="34" rx="4" fill="#fff" stroke="#678"/><text x="70" y="126" text-anchor="middle">Validation: 9</text><text x="70" y="139" text-anchor="middle">checks, gates load</text>
   <rect x="140" y="110" width="105" height="34" rx="4" fill="#fff" stroke="#678"/><text x="192" y="131" text-anchor="middle">Cleaned CSV</text>
-  <rect x="20" y="175" width="225" height="34" rx="4" fill="#fff" stroke="#678"/><text x="132" y="196" text-anchor="middle">PostgreSQL mart (4 tables)</text>
+  <rect x="20" y="175" width="225" height="34" rx="4" fill="#fff" stroke="#678"/><text x="132" y="191" text-anchor="middle">Loading → PostgreSQL mart</text><text x="132" y="204" text-anchor="middle" font-size="9">(IDS descriptions, 4 tables)</text>
   <line x1="120" y1="67" x2="138" y2="67" stroke="#456" marker-end="url(#a)"/>
   <line x1="160" y1="84" x2="90" y2="108" stroke="#456" marker-end="url(#a)"/>
   <line x1="192" y1="84" x2="192" y2="108" stroke="#456" marker-end="url(#a)"/>
@@ -79,7 +77,7 @@ Student: <b>Yashica G</b> (USN 1CR23AI143) &nbsp;|&nbsp; Repository: github.com/
   <rect x="430" y="50" width="120" height="40" rx="4" fill="#fff" stroke="#678"/><text x="490" y="67" text-anchor="middle">Train + calibrate</text><text x="490" y="81" text-anchor="middle">LR · RF · XGBoost</text>
   <rect x="570" y="50" width="125" height="40" rx="4" fill="#fff" stroke="#678"/><text x="632" y="67" text-anchor="middle">MLflow tracking +</text><text x="632" y="81" text-anchor="middle">registry v1 @candidate</text>
   <rect x="570" y="115" width="125" height="40" rx="4" fill="#fff" stroke="#678"/><text x="632" y="132" text-anchor="middle">Verified bundle</text><text x="632" y="146" text-anchor="middle">(zip + SHA-256)</text>
-  <rect x="430" y="115" width="120" height="40" rx="4" fill="#fff" stroke="#678"/><text x="490" y="132" text-anchor="middle">FastAPI /predict</text><text x="490" y="146" text-anchor="middle">Docker image</text>
+  <rect x="430" y="115" width="120" height="40" rx="4" fill="#fff" stroke="#678"/><text x="490" y="132" text-anchor="middle">FastAPI /predict</text><text x="490" y="146" text-anchor="middle" font-size="9">Docker (synthetic test)</text>
   <rect x="290" y="115" width="120" height="40" rx="4" fill="#fff" stroke="#678"/><text x="350" y="132" text-anchor="middle">Monitoring report</text><text x="350" y="146" text-anchor="middle">quality · PSI · perf.</text>
   <rect x="430" y="180" width="265" height="40" rx="4" fill="#fff" stroke="#678"/><text x="562" y="197" text-anchor="middle">/metrics: requests, failures, latency</text><text x="562" y="211" text-anchor="middle">retraining criteria → lifecycle</text>
   <line x1="410" y1="70" x2="428" y2="70" stroke="#456" marker-end="url(#a)"/>
@@ -93,7 +91,7 @@ Student: <b>Yashica G</b> (USN 1CR23AI143) &nbsp;|&nbsp; Repository: github.com/
   <text x="735" y="38" font-weight="bold" fill="#7a3d12">Streamlit dashboard</text>
   <rect x="740" y="55" width="140" height="40" rx="4" fill="#fff" stroke="#678"/><text x="810" y="72" text-anchor="middle">Part 1 analytics</text><text x="810" y="86" text-anchor="middle">(5+ views)</text>
   <rect x="740" y="125" width="140" height="40" rx="4" fill="#fff" stroke="#678"/><text x="810" y="142" text-anchor="middle">Readmission Risk</text><text x="810" y="156" text-anchor="middle">Prediction page</text>
-  <line x1="740" y1="145" x2="552" y2="140" stroke="#456" marker-end="url(#a)"/>
+  <path d="M740 150 L712 150 L712 166 L505 166 L505 157" fill="none" stroke="#456" marker-end="url(#a)"/>
   </g>
   <path d="M245 200 L265 200 L265 244 L715 244 L715 75 L738 75" fill="none" stroke="#456" stroke-dasharray="4 3" marker-end="url(#a)"/>
   <path d="M245 127 C 262 127, 270 75, 288 72" fill="none" stroke="#456" marker-end="url(#a)"/>
@@ -107,23 +105,23 @@ Student: <b>Yashica G</b> (USN 1CR23AI143) &nbsp;|&nbsp; Repository: github.com/
 <h3>4.2 Cleaning, transformation and feature engineering</h3>
 <ul>
 <li><b>Special missing-value codes:</b> the dataset's <code>?</code> code is replaced by a true missing value; categorical blanks are standardised.</li>
-<li><b>Standardisation:</b> age bands (e.g. <code>[60-70)</code> → <code>60-70</code>), admission type, source and discharge codes mapped with <code>IDS_mapping.csv</code>, diagnosis codes grouped into categories, medication fields normalised, and the readmission label kept as <code>&lt;30</code>, <code>&gt;30</code>, <code>NO</code> with a 0/1 30-day indicator.</li>
-<li><b>Invalid and duplicate encounters:</b> records missing required identifiers are rejected and duplicate <code>encounter_id</code>s removed; both go to the rejected-record log.</li>
+<li><b>Standardisation:</b> age bands (e.g. <code>[60-70)</code> → <code>60-70</code>), diagnosis codes grouped into categories, medication fields normalised, and the readmission label kept as <code>&lt;30</code>, <code>&gt;30</code>, <code>NO</code> with a 0/1 30-day indicator.</li>
+<li><b>Invalid and duplicate encounters:</b> records missing required identifiers are rejected and duplicate <code>encounter_id</code>s removed; both are written to <code>logs/validation/rejected_records.csv</code> (header only when nothing is rejected).</li>
 <li><b>Patient-safe surrogate key:</b> <code>patient_sk</code> = first 16 hex characters of SHA-256 of the patient number (71,518 unique keys, 0 duplicates).</li>
 <li><b>Engineered variables:</b> length of stay, prior admissions, diagnosis count, medication count and primary diagnosis category (<code>src/transformation/feature_engineering.py</code>).</li>
 </ul>
 <h3>4.3 Validation and error log</h3>
-<p><code>src/validation/validate.py</code> runs ten checks: required identifiers, duplicate encounters, remaining special codes, valid readmission categories, length-of-stay range, prior-admission flag, diagnosis and medication counts, and matching cleaned and analytical row counts. Failures are written to <code>logs/validation/rejected_records.csv</code> and the run status to <code>validation_log.txt</code>. On the current data the status is <b>PASSED</b> with 0 rejected records. Validation rules are documented in the <i>Validation Rules</i> sheet of <code>docs/data_dictionary.xlsx</code>.</p>
+<p><code>src/validation/validate.py</code> runs nine checks: required identifiers, duplicate encounters, remaining special codes, valid readmission categories, length-of-stay range, prior-admission flag, diagnosis count, medication count, and matching cleaned and analytical row counts. Each failed check is written as one row (check, message, count) to <code>logs/validation/validation_issues.csv</code>, a separate file from cleaning's rejected rows, and the run status to <code>validation_log.txt</code>. If any check fails the script exits with code 1, so Airflow marks the validation task failed and the PostgreSQL loading task is not run. On the current data the status is <b>PASSED</b> with 0 rejected records. Validation rules are documented in the <i>Validation Rules</i> sheet of <code>docs/data_dictionary.xlsx</code>.</p>
 <h3>4.4 PostgreSQL mart and orchestration</h3>
-<p><code>sql/schema.sql</code> defines the mart in database <code>hospital_readmission</code>, loaded by <code>src/loading/load_to_postgres.py</code> using <code>DATABASE_URL</code> from an uncommitted <code>.env</code> file.</p>
+<p><code>sql/schema.sql</code> defines the mart in database <code>hospital_readmission</code>, loaded by <code>src/loading/load_to_postgres.py</code> using <code>DATABASE_URL</code> from an uncommitted <code>.env</code> file. Loading adds the admission type, discharge disposition and admission source descriptions from <code>IDS_mapping.csv</code>, unpivots <code>diag_1</code>–<code>diag_3</code> into <code>diagnoses</code> rows (dropping unknown codes), and reloads all four tables with TRUNCATE and insert in one transaction.</p>
 <table>
-<tr><th>Table</th><th>Grain</th><th class="n">Rows (verified 15 Oct 2026)</th></tr>
+<tr><th>Table</th><th>Grain</th><th class="n">Rows (read-only query, 15 Oct 2026)</th></tr>
 <tr><td><code>admissions</code></td><td>one row per encounter: admission, stay and discharge attributes</td><td class="n">101,766</td></tr>
 <tr><td><code>diagnoses</code></td><td>one row per encounter diagnosis (up to 3)</td><td class="n">303,496</td></tr>
 <tr><td><code>patient_summary</code></td><td>one row per surrogate patient: encounter and readmission totals</td><td class="n">71,518</td></tr>
 <tr><td><code>readmissions</code></td><td>one row per encounter: readmission status and 30-day flag</td><td class="n">101,766</td></tr>
 </table>
-<p>The Airflow 3.0.4 DAG <code>hospital_readmission_etl</code> (<code>dags/hospital_readmission_dag.py</code>, running in WSL) chains ingestion → cleaning → feature engineering → validation → PostgreSQL loading with <code>BashOperator</code> tasks; it is triggered manually and can be re-run at any time. Airflow's run history records a successful end-to-end run on 6 September 2026 (Figure 4). The 30-day readmission rate in the mart is 11.16% (11,357 encounters).</p>
+<p>The Airflow 3.0.4 DAG <code>hospital_readmission_etl</code> (<code>dags/hospital_readmission_dag.py</code>, running in WSL) chains ingestion → cleaning → feature engineering → validation → PostgreSQL loading with <code>BashOperator</code> tasks; it is triggered manually and can be re-run at any time. Every task uses the default all-success rule, so a failed task stops all later tasks. Airflow's run history records a successful end-to-end run on 6 September 2026 (Figure 4). On 15 October 2026 the DAG was redeployed to the Airflow DAG folder with the project path corrected, and it parsed with no import errors. The validation gate was then tested in a separate throwaway Airflow 3.0.4 setup: a failing validation left <code>postgresql_loading</code> as <code>upstream_failed</code>, and a passing one let it run. The full DAG was not re-run on that date. A read-only query on the same day returned the row counts above and confirmed that the live tables, keys and constraints match <code>sql/schema.sql</code>. The 30-day readmission rate in the mart is 11.16% (11,357 encounters).</p>
 <div class="two">
 <figure><img src="../../screenshots/04_airflow_dag_structure.png" style="max-height:48mm"><figcaption>Figure 4. Airflow DAG structure (Part 1 evidence).</figcaption></figure>
 <figure><img src="../../screenshots/01_postgresql_tables_row_counts.png" style="max-height:30mm"><figcaption>Figure 5. PostgreSQL table row counts (Part 1 evidence).</figcaption></figure>
@@ -131,7 +129,7 @@ Student: <b>Yashica G</b> (USN 1CR23AI143) &nbsp;|&nbsp; Repository: github.com/
 
 <h2>5. Part 1: dashboard and interpretation</h2>
 <p>The Streamlit dashboard (<code>dashboard/app.py</code>) reads directly from PostgreSQL. It shows three headline indicators (101,766 encounters, 11.16% 30-day readmission rate, 4.40 days average stay) and six charts, each with its underlying data: readmission rate by age group, by diagnosis category and by prior admission history, average length of stay by readmission status, admission type distribution, and the top 10 discharge dispositions. The prior-admission view identifies the main high-risk cohort: in the cleaned data the 30-day readmission rate rises from 8.4% for patients with no inpatient visit in the previous year to 12.9%, 17.4% and 25.7% for one, two and three or more visits. Prior inpatient visits later turn out to be the Part 2 model's most important input. A dedicated high-risk cohort page was not built in Part 1; in Part 2 the prediction page (section 9) fills this role for individual made-up encounters.</p>
-<figure><img src="../../screenshots/05_streamlit_dashboard_overview.png" style="max-height:70mm"><figcaption>Figure 6. Part 1 dashboard overview with live PostgreSQL figures.</figcaption></figure>
+<figure><img src="../../screenshots/05_streamlit_dashboard_overview.png" style="max-height:70mm"><figcaption>Figure 6. Part 1 dashboard overview with live PostgreSQL figures. The word “undefined” above each chart is a known display defect (chart title styling set without a title in <code>dashboard/app.py</code>); the plotted values are correct.</figcaption></figure>
 
 <h2>6. Part 2: modelling data, split and leakage control</h2>
 <ul>
@@ -194,7 +192,7 @@ Student: <b>Yashica G</b> (USN 1CR23AI143) &nbsp;|&nbsp; Repository: github.com/
 <p>The lifecycle (<code>docs/part2/model_lifecycle.md</code>): prepare data → train and select → log and register a new version with <code>@candidate</code> → <b>approval</b> by a named reviewer (recorded as version tags and an <code>@approved</code> alias) → release (update the pinned hashes in a reviewed change, export and archive the bundle) → serve → monitor → retrain as a new version. Versions are never overwritten, so <b>rollback</b> means moving the alias back, restoring the previous pinned hashes and redeploying that version's archived bundle. <b>Important distinction:</b> <code>@candidate</code> means "selected and verified", not "approved". Version 1 has not been approved for any use, consistent with its status as an academic prototype.</p>
 
 <h2>12. Testing and reproducibility</h2>
-<p>The repository contains automated tests for target construction, cohort rules, leakage checks, the patient-grouped split and its fingerprint, preprocessing, training and selection, metrics, MLflow logging and registry, API validation and failure handling, bundle integrity, the Docker configuration, telemetry, monitoring and input quality, and the dashboard page. On 15 October 2026 the full suite was run once on the final code (all Part 2 changes combined, with the real MLflow store present): <b>240 passed, 0 failed, 0 skipped</b> in 9 minutes. Part 1 was also re-run end to end (ingestion, cleaning, feature engineering, validation) in a fresh clone: the staged, cleaned and analytical files were identical in content to the committed ones and validation PASSED. All seeds are 42; the full XGBoost run differed by about 1e-3 between two machines, so results are reproducible per environment rather than bit-for-bit across platforms.</p>
+<p>The repository contains automated tests for target construction, cohort rules, leakage checks, the patient-grouped split and its fingerprint, preprocessing, training and selection, metrics, MLflow logging and registry, API validation and failure handling, bundle integrity, the Docker configuration, telemetry, monitoring and input quality, and the dashboard page. On 15 October 2026 the full suite was run on the merged code (commit <code>892c29c</code>, with the real MLflow store present): <b>258 passed, 0 failed, 0 skipped</b> in 3 min 37 s. One telemetry test is flaky (it can match the digits of a measured latency); it failed once in an earlier run that day and passed 20 of 20 times on its own. Part 1 was also re-run end to end (ingestion, cleaning, feature engineering, validation) in a fresh clone: the staged, cleaned and analytical files were identical in content to the committed ones and validation PASSED. All seeds are 42; the full XGBoost run differed by about 1e-3 between two machines, so results are reproducible per environment rather than bit-for-bit across platforms.</p>
 
 <h2>13. Limitations</h2>
 <ul>

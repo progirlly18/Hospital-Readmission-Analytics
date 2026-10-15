@@ -48,10 +48,12 @@ Public Dataset
 → Cleaning
 → Feature Engineering
 → Validation
-→ PostgreSQL
+→ PostgreSQL Loading
 → Streamlit Dashboard
 
-Apache Airflow is used to orchestrate the ETL workflow.
+Apache Airflow is used to orchestrate the ETL workflow. Its five tasks run in
+order (ingestion → cleaning → feature engineering → validation →
+PostgreSQL loading), and a failed task stops every task after it.
 
 ---
 
@@ -123,20 +125,40 @@ The pipeline creates analytical features including:
 
 Data-quality checks are performed before loading the curated data into PostgreSQL.
 
-Validation includes checks for:
+`src/validation/validate.py` runs nine checks on the cleaned and analytical files:
 
-* Missing or invalid records
-* Duplicate encounters
-* Unique patient surrogate keys
-* Valid relationships between tables
-* Non-negative numerical/count fields
-* Readmission indicators
+1. Required identifiers (`encounter_id`, `patient_sk`) are present
+2. No duplicate `encounter_id`
+3. No remaining `?` missing-value codes
+4. `readmitted` is one of `NO`, `<30`, `>30`
+5. `time_in_hospital` is between 1 and 14 days
+6. `prior_admission` is 0 or 1
+7. `diagnosis_count` is between 0 and 3
+8. `medication_count` is between 0 and 23
+9. Cleaned and analytical files have the same row count
 
-Rejected or invalid records are written to `logs/validation/rejected_records.csv`, and each run writes `logs/ingestion/ingestion_log.txt`, `logs/validation/cleaning_log.txt` and `logs/validation/validation_log.txt` (extraction time, source files, status and row counts). On the current data the validation status is PASSED with 0 rejected records.
+If any check fails, `validate.py` exits with code 1, so Airflow marks the
+`validation` task failed and does not run `postgresql_loading`. A clean run
+exits with code 0.
+
+Cleaning and validation write separate outputs:
+
+* `logs/validation/rejected_records.csv`: the rows removed by cleaning
+  (invalid identifiers and duplicate encounters). Written only by `clean.py`;
+  header-only when nothing is rejected.
+* `logs/validation/validation_issues.csv`: one row per failed check
+  (`check`, `message`, `count`). Written only by `validate.py`; header-only
+  when every check passes.
+
+Each run also writes `logs/ingestion/ingestion_log.txt`, `logs/validation/cleaning_log.txt` and `logs/validation/validation_log.txt` (extraction time, source files, status and row counts). On the current data the validation status is PASSED with 0 rejected records.
 
 ### 5. PostgreSQL Loading
 
-The validated data is loaded into PostgreSQL.
+The validated data is loaded into PostgreSQL by `src/loading/load_to_postgres.py`.
+This step adds the admission type, discharge disposition and admission source
+descriptions from `IDS_mapping.csv`, unpivots `diag_1`–`diag_3` into one
+`diagnoses` row per encounter diagnosis, and reloads all four tables with
+`TRUNCATE` and insert inside one transaction.
 
 The database contains the following analytical tables:
 
@@ -149,7 +171,9 @@ The database contains the following analytical tables:
 
 ## Database Results
 
-Current populated database:
+Current populated database (loaded on 6 September 2026; counts re-confirmed
+with a read-only query on 15 October 2026, which also confirmed that the live
+columns, keys and constraints match `sql/schema.sql`):
 
 | Table             | Records |
 | ----------------- | ------: |
@@ -193,10 +217,27 @@ Airflow is used to orchestrate the execution order of the ETL pipeline.
 Airflow 3.0.4 runs in WSL (Ubuntu) from `~/airflow_venv`. The DAG runs each
 step with `BashOperator` inside the folder set by `PROJECT_DIR` in
 `dags/hospital_readmission_dag.py` (currently
-`/mnt/c/Users/VIDYA/Downloads/Hospital-Readmission-Analytics`); change that
-line if the project lives elsewhere. The loading step reads `DATABASE_URL`
-from `.env`. Trigger it from the Airflow UI or with
-`airflow dags trigger hospital_readmission_etl`.
+`/mnt/d/DOWNLOADS/Hospital-Readmission-Analytics`); change that line if the
+project lives elsewhere. Airflow reads DAGs from `~/airflow/dags`, so copy the
+file there after any change:
+
+```bash
+cp dags/hospital_readmission_dag.py ~/airflow/dags/
+airflow dags list-import-errors
+airflow tasks list hospital_readmission_etl
+```
+
+The loading step reads `DATABASE_URL` from `.env` and replaces the contents of
+all four tables (TRUNCATE + insert in one transaction). Trigger it from the
+Airflow UI or with `airflow dags trigger hospital_readmission_etl`.
+
+Execution evidence: the last full run of `hospital_readmission_etl` succeeded
+on 6 September 2026 (`screenshots/04_airflow_dag_structure.png`). On
+15 October 2026 the DAG was redeployed to `~/airflow/dags` and parsed with no
+import errors, and the validation gate was tested in a separate, throwaway
+Airflow 3.0.4 setup: a failing validation left `postgresql_loading` as
+`upstream_failed`, and a passing one let it run. The full DAG was not re-run
+on that date.
 
 ---
 
@@ -275,7 +316,8 @@ docs/
 
 including:
 
-* `architecture.png`
+* `architecture.png` (architecture diagram)
+* `Schema_Diagram.png` (PostgreSQL schema, drawn from `sql/schema.sql`)
 * `data_dictionary.xlsx`
 
 The `screenshots/` directory contains implementation and validation evidence.
@@ -312,9 +354,9 @@ Part 2 predicts whether a diabetic inpatient encounter will be followed by a rea
 |---|---|---|
 | 2 | Modelling cohort (99,340 encounters), 39 features known at discharge, patient-grouped train/validation/test split | `docs/part2/phase2_data_preparation.md` |
 | 3 | Logistic Regression, Random Forest and XGBoost compared; calibrated Random Forest selected (test ROC-AUC 0.6715) | `docs/part2/phase3_model_training.md` |
-| 4 | MLflow tracking and registry: `hospital-readmission-30d-classifier` version 1, alias `@candidate` | `docs/part2/phase4_mlflow_tracking.md` |
+| 4 | MLflow tracking (logged retrospectively from saved Phase 3 results) and registry: `hospital-readmission-30d-classifier` version 1, alias `@candidate` | `docs/part2/phase4_mlflow_tracking.md` |
 | 5 | FastAPI service: `/health`, `/model-info`, `/predict` | `docs/part2/phase5_api.md` |
-| 6 | Docker image serving an exported model bundle | `docs/part2/phase6_docker.md` |
+| 6 | Docker image serving an exported model bundle (container tested with a synthetic bundle only) | `docs/part2/phase6_docker.md` |
 | 7 | Monitoring: drift (PSI), performance, explainability, retraining criteria, `/metrics` | `docs/part2/phase7_monitoring.md` |
 | 8 | Readmission Risk Prediction page in the Streamlit dashboard, demo and submission evidence | `docs/part2/phase8_submission.md` |
 
@@ -335,7 +377,20 @@ Overview documents:
 - MLflow runs were logged after training from the saved Phase 3 results, not
   during training. `@candidate` means registered, not approved.
 - Discrimination is modest (test ROC-AUC 0.6715), and there is no
-  time-based evaluation because the dataset has no dates.
+  time-based evaluation because the dataset has no dates. The data are
+  historical (US hospitals, 1999–2008).
+- Monitoring is a report run on demand plus the API's in-memory `/metrics`;
+  there is no continuous production alerting.
+
+### Testing
+
+On 15 October 2026 the full suite was run on the merged code (commit
+`892c29c`): **258 passed, 0 failed, 0 skipped** in 3 min 37 s. The 18
+validation and cleaning tests also passed on their own. One test,
+`tests/test_telemetry.py::test_metrics_never_contain_request_values`, is
+known to be flaky: it checks that the digits `77` from a request never appear
+in `/metrics`, but measured latencies can contain those digits. It failed
+once in an earlier full run that day and passed 20 of 20 times on its own.
 
 ### Quick start
 
