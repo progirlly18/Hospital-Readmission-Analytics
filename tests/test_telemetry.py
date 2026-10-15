@@ -64,14 +64,59 @@ def test_metrics_report_an_unavailable_model():
     assert metrics["predictions"]["count"] == 0
 
 
-def test_metrics_never_contain_request_values():
-    body = valid_request(medical_specialty="Cardiology", gender="Male", num_medications=77)
+def leaves(node, path=()):
+    """Yield (path, key or value) for every key and leaf value in a JSON tree."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            yield path, key
+            yield from leaves(value, path + (key,))
+    elif isinstance(node, list):
+        for value in node:
+            yield from leaves(value, path)
+    else:
+        yield path, node
+
+
+def metrics_after(*bodies):
     with TestClient(create_app(Settings(), loader=loader_for(0.05))) as client:
-        client.post("/predict", json=body)
-        client.post("/predict", json=valid_request(encounter_id=123456789))
-        text = client.get("/metrics").text
-    for value in ("Cardiology", "Male", "77", "123456789", "encounter_id"):
-        assert value not in text
+        for body in bodies:
+            client.post("/predict", json=body)
+        return client.get("/metrics").json()
+
+
+def test_metrics_never_contain_request_values():
+    # Compare exact keys and values rather than searching the raw text, so a
+    # measured latency such as 12.77 cannot be mistaken for the input 77.
+    metrics = metrics_after(
+        valid_request(medical_specialty="Cardiology", gender="Male", num_medications=77),
+        valid_request(encounter_id=123456789),
+    )
+    request_fields = set(valid_request()) | {"encounter_id"}
+    for path, item in leaves(metrics):
+        if isinstance(item, str):
+            assert item not in request_fields
+            for value in ("Cardiology", "Male", "77", "123456789", "encounter_id"):
+                assert value not in item
+        elif isinstance(item, (int, float)) and not isinstance(item, bool) and path[:1] != ("latency_ms",):
+            assert item not in (77, 123456789)
+
+
+def test_metrics_contain_only_aggregate_fields():
+    metrics = metrics_after(valid_request())
+    assert set(metrics) == {"model_loaded", "model_error", "requests", "predict", "latency_ms", "predictions"}
+    assert set(metrics["requests"]) <= {"/health", "/model-info", "/predict", "/metrics", "other"}
+    assert set(metrics["predict"]) == {"requests", "succeeded", "rejected_invalid",
+                                       "model_unavailable", "server_errors", "failure_rate"}
+    assert set(metrics["latency_ms"]) == {"window", "p50", "p95", "max"}
+    assert set(metrics["predictions"]) == {"count", "high_risk_rate", "probability_bins",
+                                           "probability_counts"}
+
+
+def test_metrics_do_not_depend_on_request_values():
+    first = metrics_after(valid_request(medical_specialty="Cardiology", gender="Male", num_medications=77))
+    second = metrics_after(valid_request(num_medications=12))
+    first.pop("latency_ms"), second.pop("latency_ms")
+    assert first == second
 
 
 def test_unknown_paths_share_one_counter():

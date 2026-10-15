@@ -155,9 +155,45 @@ setup; the Dockerfile itself is unchanged.
   and `high_risk` false, extra `race` field 422), and 20 real validation rows
   gave the same probabilities as the registry (max difference 2.2e-16). Full
   suite: 191 passed.
-- The real model has **not** been run inside a container, because Docker is
-  not installed on the project machine. Running steps 1–4 above on a machine
-  with Docker completes this.
+- At that point the real model had not yet run inside a container; that test
+  was completed on 15 October 2026 (next section).
+
+### Real-model container test (15 October 2026)
+
+Docker Desktop 29.8.2 (WSL2 backend) on the project machine. The image was
+built from the unchanged Dockerfile, and the real registered model was served
+from the existing exported bundle, mounted read-only. No retraining, and no
+change to the registry, alias, threshold or pinned hashes.
+
+- Bundle check before the run: `python -m src.api.bundle --verify model_bundle`
+  → OK, `hospital-readmission-30d-classifier` version 1 (`@candidate`),
+  threshold 0.1617830043681171, model sha256 `1d17bf4a…62f9`.
+- `docker build -t readmission-api:real-model-test .`: succeeded in 156 s,
+  `pip check` "No broken requirements found", image runs as user `api`.
+- Run:
+
+  ```powershell
+  docker run -d --name readmission-real -p 127.0.0.1:8000:8000 `
+    --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges `
+    -v "${PWD}\model_bundle:/model-bundle:ro" readmission-api:real-model-test
+  ```
+
+  Docker's health check reported `healthy` after about 15 s; read-only root
+  filesystem, read-only bundle mount, port bound to 127.0.0.1 only.
+- `python -m src.api.smoke_test --url http://127.0.0.1:8000`: **passed**.
+  `/health` 200 (`model_loaded` true, version 1); `/model-info` 200
+  (version 1, alias `candidate`, threshold 0.1617830043681171, sha256
+  `1d17bf4a…62f9`, `skops`, 39 features, disclaimer present); `/predict` 200
+  with probability 0.0671 and `high_risk` false (the same value the bundle
+  gave under Uvicorn); extra `race` field 422.
+- Further checks, all as expected: extra `payer_code`, `encounter_id`,
+  `patient_nbr` and `patient_sk` fields 422; a missing field, an out-of-range
+  `time_in_hospital`, a non-numeric `num_medications` and a disallowed
+  `gender` 422; discharge codes 11, 13 and 14 (death or hospice) 422. The
+  `/predict` response carries the academic-prototype disclaimer, and none of
+  race, payer or patient identifiers is a model input.
+- The container log contains only start-up and access lines; no request
+  values were logged. The container was then stopped and removed.
 
 ## Limitations
 
