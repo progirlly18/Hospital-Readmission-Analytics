@@ -236,8 +236,12 @@ on 6 September 2026 (`screenshots/04_airflow_dag_structure.png`). On
 15 October 2026 the DAG was redeployed to `~/airflow/dags` and parsed with no
 import errors, and the validation gate was tested in a separate, throwaway
 Airflow 3.0.4 setup: a failing validation left `postgresql_loading` as
-`upstream_failed`, and a passing one let it run. The full DAG was not re-run
-on that date.
+`upstream_failed`, and a passing one let it run. The deployed DAG was then run
+end to end (run `manual__2026-10-15T09:57:34`): all five tasks succeeded,
+validation PASSED, and the loader wrote 101,766 admissions, 303,496 diagnoses,
+71,518 patient summaries and 101,766 readmissions. For that run the
+connection's `search_path` was set to a separate test schema, so the
+production tables were not modified.
 
 ---
 
@@ -384,13 +388,18 @@ Overview documents:
 
 ### Testing
 
-On 15 October 2026 the full suite was run on the merged code (commit
-`892c29c`): **258 passed, 0 failed, 0 skipped** in 3 min 37 s. The 18
-validation and cleaning tests also passed on their own. One test,
-`tests/test_telemetry.py::test_metrics_never_contain_request_values`, is
-known to be flaky: it checks that the digits `77` from a request never appear
-in `/metrics`, but measured latencies can contain those digits. It failed
-once in an earlier full run that day and passed 20 of 20 times on its own.
+On 15 October 2026 the full suite was run on the final code: **260 passed,
+0 failed, 0 skipped** in 6 min 45 s. The 18 validation and cleaning tests also
+pass on their own.
+
+`tests/test_telemetry.py::test_metrics_never_contain_request_values` used to
+be flaky: it searched the raw `/metrics` text for the input value `77`, which
+a measured latency such as `12.77` could also contain. It now checks keys and
+values exactly (latencies are excluded from the numeric check), and two tests
+were added: `/metrics` may contain only its fixed aggregate fields, and its
+contents must not change when the request values change. The telemetry tests
+then passed 25 of 25 repeated runs, including a run with a forced latency of
+77.77 ms.
 
 ### Quick start
 
