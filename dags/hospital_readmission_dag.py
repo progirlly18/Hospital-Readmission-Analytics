@@ -8,7 +8,7 @@ from airflow.providers.standard.operators.bash import BashOperator
 # Project configuration
 # ---------------------------------------------------------
 
-PROJECT_DIR = "/mnt/c/Users/VIDYA/Downloads/Hospital-Readmission-Analytics"
+PROJECT_DIR = "/mnt/d/DOWNLOADS/Hospital-Readmission-Analytics"
 
 PYTHON = "/home/vidya/airflow_venv/bin/python"
 
