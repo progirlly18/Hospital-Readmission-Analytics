@@ -20,12 +20,21 @@ Diabetes 130-US Hospitals for Years 1999–2008
 
 The dataset contains hospital encounter information for patients with diabetes, including admission details, diagnoses, procedures, medications, and readmission outcomes.
 
+### Access instructions
+
+- Publisher: UCI Machine Learning Repository, dataset 296, "Diabetes 130-US
+  Hospitals for Years 1999–2008" (Strack et al., 2014), licensed CC BY 4.0.
+- Page: https://archive.ics.uci.edu/dataset/296/diabetes+130-us+hospitals+for+years+1999-2008
+- Download the zip from that page (free, no account needed) and copy
+  `diabetic_data.csv` and `IDS_mapping.csv` into `data/raw/`.
+- The repository already contains these two files in `data/raw/`, so a fresh
+  clone can run the pipeline without downloading anything. They are the
+  unmodified public files; the pipeline never edits them.
+
 ### Main Files
 
-- `diabetic_data.csv` – primary hospital encounter dataset
+- `diabetic_data.csv` – primary hospital encounter dataset (101,766 encounters, 50 columns)
 - `IDS_mapping.csv` – identifier/code mapping information
-
-The original dataset is maintained separately in the project's raw data area.
 
 ---
 
@@ -50,45 +59,36 @@ Apache Airflow is used to orchestrate the ETL workflow.
 
 ```text
 Hospital-Readmission-Analytics/
-│
 ├── data/
-│   ├── raw/
-│   ├── staging/
-│   ├── cleaned/
-│   └── analytical/
-│
+│   ├── raw/                 original UCI files (unchanged)
+│   ├── staging/             copies made by ingestion
+│   ├── cleaned/             cleaned encounters (also the Part 2 modelling source)
+│   └── analytical/          engineered features loaded into PostgreSQL
 ├── dags/
 │   └── hospital_readmission_dag.py
-│
 ├── src/
-│   ├── ingestion/
-│   ├── loading/
-│   ├── transformation/
-│   └── validation/
-│
-├── sql/
-│   └── schema.sql
-│
+│   ├── ingestion/  transformation/  validation/  loading/     Part 1 ETL
+│   ├── ml/                  Part 2 cohort, features, split, training, MLflow
+│   ├── api/                 Part 2 FastAPI service and model bundle
+│   └── monitoring/          Part 2 drift, input quality, retraining criteria
+├── sql/schema.sql
 ├── dashboard/
-│   └── app.py
-│
-├── logs/
-│   ├── ingestion/
-│   └── validation/
-│
-├── notebooks/
-│
+│   ├── app.py               Part 1 dashboard
+│   └── pages/               Part 2 prediction page
+├── tests/                   Part 2 tests
 ├── docs/
-│   ├── architecture.png
-│   └── data_dictionary.xlsx
-│
-├── screenshots/
-│
-├── .env
-├── .gitignore
-├── requirements.txt
+│   ├── architecture.png, Schema_Diagram.png, data_dictionary.xlsx   Part 1
+│   ├── part2/               Part 2 phase docs, model card, lifecycle, bundle
+│   └── report/              project report (PDF and HTML source)
+├── screenshots/             Part 1 evidence (01–07) and part2/ evidence
+├── Dockerfile, requirements*.txt, pytest.ini
 └── README.md
-````
+```
+
+Generated locally and not committed (see `.gitignore`): `.env` (database
+credentials), `logs/` (ingestion, cleaning, validation and rejected-record
+logs, written on every run), `artifacts/`, `mlflow.db`, `mlartifacts/`,
+`model_bundle/` and `dist/`.
 
 ---
 
@@ -132,7 +132,7 @@ Validation includes checks for:
 * Non-negative numerical/count fields
 * Readmission indicators
 
-Rejected or invalid records are recorded through the project's error/rejection logging process.
+Rejected or invalid records are written to `logs/validation/rejected_records.csv`, and each run writes `logs/ingestion/ingestion_log.txt`, `logs/validation/cleaning_log.txt` and `logs/validation/validation_log.txt` (extraction time, source files, status and row counts). On the current data the validation status is PASSED with 0 rejected records.
 
 ### 5. PostgreSQL Loading
 
@@ -190,6 +190,14 @@ postgresql_loading
 
 Airflow is used to orchestrate the execution order of the ETL pipeline.
 
+Airflow 3.0.4 runs in WSL (Ubuntu) from `~/airflow_venv`. The DAG runs each
+step with `BashOperator` inside the folder set by `PROJECT_DIR` in
+`dags/hospital_readmission_dag.py` (currently
+`/mnt/c/Users/VIDYA/Downloads/Hospital-Readmission-Analytics`); change that
+line if the project lives elsewhere. The loading step reads `DATABASE_URL`
+from `.env`. Trigger it from the Airflow UI or with
+`airflow dags trigger hospital_readmission_etl`.
+
 ---
 
 ## Dashboard
@@ -213,10 +221,17 @@ The dashboard reads analytical data from PostgreSQL.
 Activate the project Python environment and run:
 
 ```bash
+pip install -r requirements.txt
+python src/ingestion/ingest.py
+python src/transformation/clean.py
+python src/transformation/feature_engineering.py
+python src/validation/validate.py
+python src/loading/load_to_postgres.py      # needs DATABASE_URL in .env
 streamlit run dashboard/app.py
 ```
 
-The dashboard will open in the browser.
+The steps above are the same ones the Airflow DAG runs. The dashboard will
+open in the browser.
 
 ---
 
@@ -303,7 +318,24 @@ Part 2 predicts whether a diabetic inpatient encounter will be followed by a rea
 | 7 | Monitoring: drift (PSI), performance, explainability, retraining criteria, `/metrics` | `docs/part2/phase7_monitoring.md` |
 | 8 | Readmission Risk Prediction page in the Streamlit dashboard, demo and submission evidence | `docs/part2/phase8_submission.md` |
 
-Overview documents: `docs/part2/architecture.md` (architecture diagram) and `docs/part2/model_card.md` (model card).
+Overview documents:
+
+- `docs/report/Project_Report.pdf`: the project report (Part 1 and Part 2)
+- `docs/part2/architecture.md`: architecture diagram
+- `docs/part2/model_card.md`: model card
+- `docs/part2/model_lifecycle.md`: registration, `@candidate`, approval, release, monitoring, retraining and rollback
+- `docs/part2/model_bundle.md`: serving the registered model from a fresh clone
+- `screenshots/part2/README.md`: index of the Part 2 screenshots
+
+### Known limitations
+
+- The real registered model has not been run inside a Docker container
+  (Docker is not installed on the project machine). The image was built and
+  tested with a synthetic bundle; the real bundle was served with Uvicorn.
+- MLflow runs were logged after training from the saved Phase 3 results, not
+  during training. `@candidate` means registered, not approved.
+- Discrimination is modest (test ROC-AUC 0.6715), and there is no
+  time-based evaluation because the dataset has no dates.
 
 ### Quick start
 
@@ -314,6 +346,12 @@ uvicorn src.api.main:app                  # prediction API on http://127.0.0.1:8
 streamlit run dashboard/app.py            # dashboard; open "Readmission Risk Prediction"
 python -m src.monitoring.report           # monitoring report in artifacts/monitoring/
 ```
+
+On a fresh clone, the registered model is not in Git: unzip the submitted
+`model_bundle_v1.zip`, check it with `python -m src.api.bundle --verify
+model_bundle` and start the API with `READMISSION_MODEL_BUNDLE=model_bundle`
+(`docs/part2/model_bundle.md`). Retraining does not reproduce the served
+model, because the API only accepts the pinned model hash.
 
 The API and the monitoring report need the local MLflow store from Phase 4 (`mlflow.db` and `mlartifacts/`, not committed) or an exported model bundle (`READMISSION_MODEL_BUNDLE`). The prediction page calls the API at `http://localhost:8000` (or `READMISSION_API_URL`) and shows a message instead of a result when the API is not running. The full demo steps are in `docs/part2/phase8_submission.md`.
 
