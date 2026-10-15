@@ -211,11 +211,12 @@ def clean_data():
     # 10. Save rejected records
     # -----------------------------------------------------
 
-    if not rejected_records.empty:
-        rejected_records.to_csv(
-            REJECTED_FILE,
-            index=False
-        )
+    # Always written, so the file reflects this run (header only when
+    # no records are rejected).
+    rejected_records.to_csv(
+        REJECTED_FILE,
+        index=False
+    )
 
     # -----------------------------------------------------
     # 11. Write validation/cleaning log
