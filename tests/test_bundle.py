@@ -14,10 +14,12 @@ from src.api.bundle import (  # noqa: E402
     MANIFEST,
     MODEL_DIR,
     MODEL_FILE,
+    archive_bundle,
     export_bundle,
     file_hashes,
     load_bundle,
     sha256_file,
+    verify_bundle,
 )
 from src.api.main import create_app, feature_frame  # noqa: E402
 from src.api.model import (  # noqa: E402
@@ -233,3 +235,44 @@ def test_manifest_not_ready(bundle_copy):
     copy, settings = bundle_copy
     edit_manifest(copy, status="PENDING_REGISTRATION")
     assert_bundle_rejected(settings, "not READY")
+
+
+# ---------------------------------------------------------
+# Archive for another machine (fresh clone)
+# ---------------------------------------------------------
+
+def test_archive_is_reproducible_and_holds_only_the_bundle(bundle, registry, tmp_path):
+    import zipfile
+    first = archive_bundle(registry["settings"], bundle["dir"], tmp_path / "a.zip")
+    second = archive_bundle(registry["settings"], bundle["dir"], tmp_path / "b.zip")
+    assert first == second == sha256_file(tmp_path / "a.zip")
+    assert (tmp_path / "a.zip.sha256").read_text(encoding="utf-8").startswith(first)
+    names = zipfile.ZipFile(tmp_path / "a.zip").namelist()
+    assert names[0] == f"model_bundle/{MANIFEST}"
+    assert sorted(names[1:]) == sorted(f"model_bundle/{MODEL_DIR}/{name}"
+                                       for name in bundle["manifest"]["files"])
+
+
+def test_unzipped_archive_passes_every_check(bundle, registry, tmp_path):
+    import zipfile
+    archive_bundle(registry["settings"], bundle["dir"], tmp_path / "bundle.zip")
+    zipfile.ZipFile(tmp_path / "bundle.zip").extractall(tmp_path / "unzipped")
+    loaded = verify_bundle(registry["settings"], tmp_path / "unzipped" / "model_bundle")
+    assert loaded.version == "1" and loaded.threshold == pytest.approx(
+        float(bundle["manifest"]["version_tags"]["selected_threshold"]))
+
+
+def test_archive_refuses_a_tampered_bundle(bundle_copy, registry, tmp_path):
+    copy, _ = bundle_copy
+    (copy / MODEL_DIR / "extra.txt").write_text("x", encoding="utf-8")
+    with pytest.raises(ModelNotReady, match="manifest"):
+        archive_bundle(registry["settings"], copy, tmp_path / "out.zip")
+    assert not (tmp_path / "out.zip").exists()
+
+
+def test_archive_does_not_overwrite(bundle, registry, tmp_path):
+    target = tmp_path / "exists.zip"
+    target.write_bytes(b"keep")
+    with pytest.raises(FileExistsError):
+        archive_bundle(registry["settings"], bundle["dir"], target)
+    assert target.read_bytes() == b"keep"

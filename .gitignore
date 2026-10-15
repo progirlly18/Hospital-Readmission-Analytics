@@ -24,3 +24,6 @@ mlflow.db
 models/
 model_bundle/
 .pytest_cache/
+
+# Model bundle archives for submission (python -m src.api.bundle --archive)
+dist/
