@@ -9,8 +9,7 @@
   msedge --headless=new --no-pdf-header-footer --print-to-pdf=docs/report/Project_Report.pdf docs/report/project_report.html
   ```
 
-Before submitting, fill in the student name and ID on the first page of the
-HTML and print the PDF again.
+
 
 All figures in the report come from the repository's documented results
 (`docs/part2/`, `artifacts/` outputs on the project machine) and from the
